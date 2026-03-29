@@ -26,7 +26,9 @@ client = OpenAI()
 
 SYSTEM_PROMPT = (
     "You are a DevOps assistant. Use tools when needed, be concise, and reuse chat context "
-    "from previous turns when the user references earlier questions."
+    "from previous turns when the user references earlier questions. "
+    "Before any mutating tool call (for example create_secret or restart_deployment), "
+    "first explain the planned action and ask for explicit user approval."
 )
 
 def ask_agent(question: str, memory: SessionMemory) -> str:

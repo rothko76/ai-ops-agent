@@ -203,4 +203,59 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "type": "function",
+        "name": "create_secret",
+        "description": "Create a Kubernetes secret. This mutating action requires explicit approval.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "namespace": {
+                    "type": "string",
+                    "description": "Namespace where the secret will be created.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Secret name.",
+                },
+                "data": {
+                    "type": "object",
+                    "description": "Key/value pairs for secret string_data.",
+                    "additionalProperties": {"type": "string"},
+                },
+                "secret_type": {
+                    "type": "string",
+                    "description": "Kubernetes secret type. Defaults to Opaque.",
+                },
+                "approved": {
+                    "type": "boolean",
+                    "description": "Set true only after user explicitly approves this change.",
+                },
+            },
+            "required": ["namespace", "name", "data"],
+        },
+    },
+    {
+        "type": "function",
+        "name": "restart_deployment",
+        "description": "Restart a deployment rollout by patching a restart annotation. This mutating action requires explicit approval.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "namespace": {
+                    "type": "string",
+                    "description": "Namespace containing the deployment.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Deployment name.",
+                },
+                "approved": {
+                    "type": "boolean",
+                    "description": "Set true only after user explicitly approves this change.",
+                },
+            },
+            "required": ["namespace", "name"],
+        },
+    },
 ]

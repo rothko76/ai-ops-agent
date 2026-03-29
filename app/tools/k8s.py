@@ -1,6 +1,7 @@
 """Kubernetes-related tools."""
 
 from typing import Any, cast
+from datetime import UTC, datetime
 
 from kubernetes import client as k8s_client, config
 from kubernetes.client.rest import ApiException
@@ -331,3 +332,69 @@ def get_failed_pods(namespace: str = "default") -> list[dict[str, Any]] | dict[s
         return failed
     except ApiException as err:
         return {"error": f"Failed to list failed pods: {err.reason}"}
+
+
+def create_secret(
+    namespace: str,
+    name: str,
+    data: dict[str, str],
+    secret_type: str = "Opaque",
+) -> dict[str, str]:
+    _load_kube_config()
+    v1 = k8s_client.CoreV1Api()
+
+    body = k8s_client.V1Secret(
+        metadata=k8s_client.V1ObjectMeta(name=name, namespace=_safe_ns(namespace)),
+        string_data=data,
+        type=secret_type,
+    )
+
+    try:
+        v1.create_namespaced_secret(namespace=_safe_ns(namespace), body=body)
+        return {
+            "status": "created",
+            "namespace": _safe_ns(namespace),
+            "name": name,
+            "type": secret_type,
+        }
+    except ApiException as err:
+        if err.status == 409:
+            return {
+                "status": "already_exists",
+                "namespace": _safe_ns(namespace),
+                "name": name,
+            }
+        return {"error": f"Failed to create secret '{name}': {err.reason}"}
+
+
+def restart_deployment(namespace: str, name: str) -> dict[str, str]:
+    _load_kube_config()
+    apps = k8s_client.AppsV1Api()
+
+    restarted_at = datetime.now(UTC).isoformat()
+    patch_body = {
+        "spec": {
+            "template": {
+                "metadata": {
+                    "annotations": {
+                        "kubectl.kubernetes.io/restartedAt": restarted_at,
+                    }
+                }
+            }
+        }
+    }
+
+    try:
+        apps.patch_namespaced_deployment(
+            name=name,
+            namespace=_safe_ns(namespace),
+            body=patch_body,
+        )
+        return {
+            "status": "restarted",
+            "namespace": _safe_ns(namespace),
+            "name": name,
+            "restarted_at": restarted_at,
+        }
+    except ApiException as err:
+        return {"error": f"Failed to restart deployment '{name}': {err.reason}"}
