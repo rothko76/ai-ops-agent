@@ -26,9 +26,17 @@ client = OpenAI()
 
 SYSTEM_PROMPT = (
     "You are a DevOps assistant. Use tools when needed, be concise, and reuse chat context "
-    "from previous turns when the user references earlier questions. "
-    "Before any mutating tool call (for example create_secret or restart_deployment), "
-    "first explain the planned action and ask for explicit user approval."
+    "from previous turns when the user references earlier questions.\n\n"
+    "MUTATING TOOLS (create_secret, restart_deployment) REQUIRE APPROVAL:\n"
+    "1. Call the tool to plan the action. If it returns {\"status\": \"permission_required\"}, "
+    "explain to the user what you intend to do and ask for their confirmation.\n"
+    "2. When the user confirms (any message indicating yes/approval/go ahead), IMMEDIATELY call "
+    "the same tool again with approved=true — do NOT ask for confirmation a second time.\n"
+    "3. After creating a missing secret that was blocking pods, always also call "
+    "restart_deployment (with approval) so pods recover immediately — "
+    "pods in CreateContainerConfigError do not recover on their own.\n\n"
+    "Never say 'I cannot' or 'I was unable' if the only issue was missing approval. "
+    "Just call the tool again with approved=true once the user has confirmed."
 )
 
 def ask_agent(question: str, memory: SessionMemory) -> str:

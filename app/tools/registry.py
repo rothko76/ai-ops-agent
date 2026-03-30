@@ -206,7 +206,7 @@ TOOLS = [
     {
         "type": "function",
         "name": "create_secret",
-        "description": "Create a Kubernetes secret. This mutating action requires explicit approval.",
+        "description": "Create a Kubernetes secret in a namespace. Always include the 'data' field with the key-value pairs for the secret. This mutating action requires explicit approval.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -220,7 +220,7 @@ TOOLS = [
                 },
                 "data": {
                     "type": "object",
-                    "description": "Key/value pairs for secret string_data.",
+                    "description": "Required. Key/value pairs for the secret (e.g. {\"token\": \"mysecretvalue\"}). Must always be provided.",
                     "additionalProperties": {"type": "string"},
                 },
                 "secret_type": {

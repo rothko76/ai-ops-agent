@@ -337,9 +337,11 @@ def get_failed_pods(namespace: str = "default") -> list[dict[str, Any]] | dict[s
 def create_secret(
     namespace: str,
     name: str,
-    data: dict[str, str],
+    data: dict[str, str] | None = None,
     secret_type: str = "Opaque",
 ) -> dict[str, str]:
+    if data is None:
+        data = {}
     _load_kube_config()
     v1 = k8s_client.CoreV1Api()
 
