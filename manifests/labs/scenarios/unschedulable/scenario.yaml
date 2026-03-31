@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-lab-unschedulable
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unschedulable-app
+  namespace: agent-lab-unschedulable
+  labels:
+    app: unschedulable-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unschedulable-app
+  template:
+    metadata:
+      labels:
+        app: unschedulable-app
+    spec:
+      nodeSelector:
+        impossible-node-label: "true"
+      containers:
+        - name: unschedulable-app
+          image: nginx:1.25
+          ports:
+            - containerPort: 80

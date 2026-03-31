@@ -33,6 +33,25 @@ def list_namespaces() -> list[str] | dict[str, str]:
         return {"error": f"Failed to list namespaces: {err.reason}"}
 
 
+def list_secrets(namespace: str = "default") -> list[dict[str, Any]] | dict[str, str]:
+    """List all secrets in a namespace with their type and keys."""
+    _load_kube_config()
+    v1 = k8s_client.CoreV1Api()
+
+    try:
+        secrets = cast(Any, v1.list_namespaced_secret(namespace=_safe_ns(namespace)))
+        results: list[dict[str, Any]] = []
+        for secret in cast(Any, secrets.items):
+            results.append({
+                "name": secret.metadata.name,
+                "type": secret.type,
+                "keys": list(secret.data.keys()) if secret.data else [],
+            })
+        return results
+    except ApiException as err:
+        return {"error": f"Failed to list secrets: {err.reason}"}
+
+
 def get_pods(namespace: str = "default") -> list[dict[str, Any]] | dict[str, str]:
     _load_kube_config()
     v1 = k8s_client.CoreV1Api()
@@ -400,3 +419,25 @@ def restart_deployment(namespace: str, name: str) -> dict[str, str]:
         }
     except ApiException as err:
         return {"error": f"Failed to restart deployment '{name}': {err.reason}"}
+
+
+def delete_secret(namespace: str, name: str) -> dict[str, str]:
+    """Delete a Kubernetes secret from a namespace."""
+    _load_kube_config()
+    v1 = k8s_client.CoreV1Api()
+
+    try:
+        v1.delete_namespaced_secret(name=name, namespace=_safe_ns(namespace))
+        return {
+            "status": "deleted",
+            "namespace": _safe_ns(namespace),
+            "name": name,
+        }
+    except ApiException as err:
+        if err.status == 404:
+            return {
+                "status": "not_found",
+                "namespace": _safe_ns(namespace),
+                "name": name,
+            }
+        return {"error": f"Failed to delete secret '{name}': {err.reason}"}

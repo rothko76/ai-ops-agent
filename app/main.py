@@ -4,6 +4,8 @@ from openai import OpenAI
 from typing import Any, cast
 import json
 import logging
+import os
+from datetime import date, datetime
 
 try:
     from app.memory import SessionMemory
@@ -23,20 +25,36 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 client = OpenAI()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1")
+
+
+def _json_safe_default(value: Any) -> str:
+    """Convert common non-JSON-native objects into stable string values."""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 SYSTEM_PROMPT = (
     "You are a DevOps assistant. Use tools when needed, be concise, and reuse chat context "
     "from previous turns when the user references earlier questions.\n\n"
+    "When debugging incidents, always follow this loop:\n"
+    "1) Observe: Gather evidence with tools. Do not propose fixes yet.\n"
+    "2) Hypothesis: State the most likely root cause from observed evidence.\n"
+    "3) Test: Use tools to confirm or refute the hypothesis.\n"
+    "4) Evaluate: Say whether hypothesis is supported or rejected.\n"
+    "5) Decide: Either continue investigating or propose a remediation.\n\n"
+    "Response format requirement:\n"
+    "Start each diagnostic reply with 'Step: <Observe|Hypothesis|Test|Evaluate|Decide>' so "
+    "the user can track your reasoning.\n\n"
     "MUTATING TOOLS (create_secret, restart_deployment) REQUIRE APPROVAL:\n"
-    "1. Call the tool to plan the action. If it returns {\"status\": \"permission_required\"}, "
-    "explain to the user what you intend to do and ask for their confirmation.\n"
-    "2. When the user confirms (any message indicating yes/approval/go ahead), IMMEDIATELY call "
-    "the same tool again with approved=true — do NOT ask for confirmation a second time.\n"
-    "3. After creating a missing secret that was blocking pods, always also call "
-    "restart_deployment (with approval) so pods recover immediately — "
-    "pods in CreateContainerConfigError do not recover on their own.\n\n"
-    "Never say 'I cannot' or 'I was unable' if the only issue was missing approval. "
-    "Just call the tool again with approved=true once the user has confirmed."
+    "1) If a tool call returns {\"status\": \"permission_required\"}, explain exactly what "
+    "you plan to change and ask for confirmation.\n"
+    "2) If the user confirms (yes/approved/go ahead), immediately retry the same tool call with "
+    "approved=true and do not ask for confirmation again.\n"
+    "3) Do not execute mutating actions before at least one Observe->Hypothesis->Test cycle.\n"
+    "4) After any remediation, always verify outcome with follow-up tool calls before concluding.\n"
+    "5) For missing secret incidents, after create_secret succeeds, also restart_deployment (with "
+    "approval) to force pods to pick up the new secret quickly."
 )
 
 def ask_agent(question: str, memory: SessionMemory) -> str:
@@ -46,7 +64,7 @@ def ask_agent(question: str, memory: SessionMemory) -> str:
     while True:
         logger.debug(f"Sending {len(messages)} messages to model")
         response = client.responses.create(
-            model="gpt-4.1-mini",
+            model=OPENAI_MODEL,
             input=cast(Any, messages),
             tools=cast(list, TOOLS)
         )
@@ -64,12 +82,18 @@ def ask_agent(question: str, memory: SessionMemory) -> str:
 
             logger.debug(f"Tool result: {result}")
 
+            # Check if tool is unavailable (missing tool awareness)
+            if isinstance(result, dict) and result.get("status") == "tool_not_available":
+                logger.warning(f"Tool not available: {tool_name}")
+                msg = result.get("message", "Unknown tool")
+                return f"⚠️  {msg}"
+
             # send tool result back
             messages.append(output)  # the tool call
             messages.append({
                 "type": "function_call_output",
                 "call_id": output.call_id,
-                "output": json.dumps(result)
+                "output": json.dumps(result, default=_json_safe_default)
             })
 
         # 🧠 CASE 2: final answer

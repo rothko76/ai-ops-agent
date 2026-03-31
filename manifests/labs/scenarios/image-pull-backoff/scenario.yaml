@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-lab-imagepull
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-image-app
+  namespace: agent-lab-imagepull
+  labels:
+    app: bad-image-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bad-image-app
+  template:
+    metadata:
+      labels:
+        app: bad-image-app
+    spec:
+      containers:
+        - name: bad-image-app
+          image: does-not-exist.local/not-a-real-image:latest
+          ports:
+            - containerPort: 8080

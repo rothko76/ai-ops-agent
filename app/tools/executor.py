@@ -2,8 +2,10 @@
 
 from .k8s import (
     create_secret,
+    delete_secret,
     describe_pod,
     list_namespaces,
+    list_secrets,
     restart_deployment,
     get_deployments_status,
     get_events,
@@ -16,8 +18,12 @@ from .k8s import (
     get_resource_usage,
 )
 from .weather import get_weather
+from .registry import TOOLS
 
-MUTATING_TOOLS = {"create_secret", "restart_deployment"}
+MUTATING_TOOLS = {"create_secret", "delete_secret", "restart_deployment"}
+
+# Build set of available tool names from registry
+AVAILABLE_TOOLS = {tool["name"] for tool in TOOLS}
 
 
 def _approval_required(tool_name: str, args: dict) -> bool:
@@ -31,6 +37,19 @@ def _sanitize_args(args: dict) -> dict:
 
 
 def execute_tool(tool_name: str, args: dict) -> dict | list:
+    # Check if tool is available
+    if tool_name not in AVAILABLE_TOOLS:
+        return {
+            "status": "tool_not_available",
+            "tool": tool_name,
+            "message": (
+                f"Tool '{tool_name}' is not available. "
+                f"Available tools: {sorted(AVAILABLE_TOOLS)}. "
+                f"To use this tool, add it to app/tools/k8s.py (or weather.py), "
+                f"import it in executor.py, add a dispatch case, and register it in registry.py."
+            ),
+        }
+    
     if _approval_required(tool_name, args):
         return {
             "status": "permission_required",
@@ -44,6 +63,8 @@ def execute_tool(tool_name: str, args: dict) -> dict | list:
 
     if tool_name == "list_namespaces":
         return list_namespaces()
+    if tool_name == "list_secrets":
+        return list_secrets(**safe_args)
     if tool_name == "get_pods":
         return get_pods(**safe_args)
     if tool_name == "get_weather":
@@ -68,6 +89,8 @@ def execute_tool(tool_name: str, args: dict) -> dict | list:
         return get_failed_pods(**safe_args)
     if tool_name == "create_secret":
         return create_secret(**safe_args)
+    if tool_name == "delete_secret":
+        return delete_secret(**safe_args)
     if tool_name == "restart_deployment":
         return restart_deployment(**safe_args)
     return {"error": f"Unknown tool: {tool_name}"}

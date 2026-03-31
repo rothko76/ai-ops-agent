@@ -13,6 +13,21 @@ TOOLS = [
     },
     {
         "type": "function",
+        "name": "list_secrets",
+        "description": "List all secrets in a Kubernetes namespace with their type and keys",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "namespace": {
+                    "type": "string",
+                    "description": "The Kubernetes namespace to query. Defaults to 'default'.",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "type": "function",
         "name": "get_pods",
         "description": "Get list of Kubernetes pods and their status",
         "parameters": {
@@ -233,6 +248,29 @@ TOOLS = [
                 },
             },
             "required": ["namespace", "name", "data"],
+        },
+    },
+    {
+        "type": "function",
+        "name": "delete_secret",
+        "description": "Delete a Kubernetes secret from a namespace. This mutating action requires explicit approval.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "namespace": {
+                    "type": "string",
+                    "description": "Namespace containing the secret.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Secret name to delete.",
+                },
+                "approved": {
+                    "type": "boolean",
+                    "description": "Set true only after user explicitly approves this change.",
+                },
+            },
+            "required": ["namespace", "name"],
         },
     },
     {
