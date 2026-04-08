@@ -1,11 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
 from openai import OpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, InternalServerError, RateLimitError
 from typing import Any, cast
 import json
 import logging
 import os
 from datetime import date, datetime
+from tenacity import before_sleep_log, retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
 try:
     from app.memory import SessionMemory
@@ -33,6 +35,29 @@ def _json_safe_default(value: Any) -> str:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
     return str(value)
+
+
+def _is_retryable_openai_error(exc: BaseException) -> bool:
+    if isinstance(exc, (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        return getattr(exc, "status_code", None) in {408, 409, 429, 500, 502, 503, 504}
+    return False
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(initial=0.5, max=8),
+    retry=retry_if_exception(_is_retryable_openai_error),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+def _create_response(messages: list[Any]) -> Any:
+    return client.responses.create(
+        model=OPENAI_MODEL,
+        input=cast(Any, messages),
+        tools=cast(list, TOOLS),
+    )
 
 SYSTEM_PROMPT = (
     "You are a DevOps assistant. Use tools when needed, be concise, and reuse chat context "
@@ -63,11 +88,11 @@ def ask_agent(question: str, memory: SessionMemory) -> str:
 
     while True:
         logger.debug(f"Sending {len(messages)} messages to model")
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            input=cast(Any, messages),
-            tools=cast(list, TOOLS)
-        )
+        try:
+            response = _create_response(messages)
+        except (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError, APIStatusError):
+            logger.exception("OpenAI request failed after retries")
+            return "I could not reach the model service after multiple retries. Please try again."
 
         output = response.output[0]
         logger.debug(f"Response output type: {output.type}")

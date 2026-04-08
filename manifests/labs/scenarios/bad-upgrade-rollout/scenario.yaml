@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-lab-bad-upgrade
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upgrade-app
+  namespace: agent-lab-bad-upgrade
+  labels:
+    app: upgrade-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: upgrade-app
+  template:
+    metadata:
+      labels:
+        app: upgrade-app
+    spec:
+      containers:
+        - name: upgrade-app
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

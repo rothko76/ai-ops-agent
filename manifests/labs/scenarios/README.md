@@ -10,6 +10,8 @@ Each scenario has:
 - `missing-secret`: Pod references a non-existent secret (`CreateContainerConfigError`).
 - `crashloop`: Container exits immediately (`CrashLoopBackOff`).
 - `image-pull-backoff`: Invalid image path (`ImagePullBackOff` or `ErrImagePull`).
+- `bad-upgrade-rollout`: Deployment starts healthy, then a bad image upgrade breaks rollout (`ImagePullBackOff`), ideal for rollback demos.
+- `bad-config-rollout`: Deployment starts healthy, then a bad env config rollout causes app exit and `CrashLoopBackOff`.
 - `unschedulable`: Impossible node selector (`Pending` with scheduling failures).
 
 ## Usage

@@ -1,12 +1,23 @@
 """Tool dispatcher for model function calls."""
 
 from .k8s import (
+    create_registry_secret,
     create_secret,
     delete_secret,
     describe_pod,
+    get_deployment_images,
     list_namespaces,
     list_secrets,
+    rollback_deployment,
     restart_deployment,
+    set_deployment_image,
+    set_deployment_env,
+    set_probe_config,
+    set_resource_limits,
+    set_image_pull_secret,
+    get_image_pull_secret_refs,
+    get_rollout_history,
+    validate_image_reference,
     get_deployments_status,
     get_events,
     get_failed_pods,
@@ -20,7 +31,18 @@ from .k8s import (
 from .weather import get_weather
 from .registry import TOOLS
 
-MUTATING_TOOLS = {"create_secret", "delete_secret", "restart_deployment"}
+MUTATING_TOOLS = {
+    "create_secret",
+    "delete_secret",
+    "restart_deployment",
+    "set_deployment_image",
+    "set_deployment_env",
+    "set_probe_config",
+    "set_resource_limits",
+    "rollback_deployment",
+    "set_image_pull_secret",
+    "create_registry_secret",
+}
 
 # Build set of available tool names from registry
 AVAILABLE_TOOLS = {tool["name"] for tool in TOOLS}
@@ -79,6 +101,10 @@ def execute_tool(tool_name: str, args: dict) -> dict | list:
         return get_pod_logs(**safe_args)
     if tool_name == "get_deployments_status":
         return get_deployments_status(**safe_args)
+    if tool_name == "get_deployment_images":
+        return get_deployment_images(**safe_args)
+    if tool_name == "get_rollout_history":
+        return get_rollout_history(**safe_args)
     if tool_name == "get_nodes_status":
         return get_nodes_status()
     if tool_name == "get_resource_usage":
@@ -87,10 +113,28 @@ def execute_tool(tool_name: str, args: dict) -> dict | list:
         return get_hpa_status(**safe_args)
     if tool_name == "get_failed_pods":
         return get_failed_pods(**safe_args)
+    if tool_name == "get_image_pull_secret_refs":
+        return get_image_pull_secret_refs(**safe_args)
+    if tool_name == "validate_image_reference":
+        return validate_image_reference(**safe_args)
     if tool_name == "create_secret":
         return create_secret(**safe_args)
     if tool_name == "delete_secret":
         return delete_secret(**safe_args)
     if tool_name == "restart_deployment":
         return restart_deployment(**safe_args)
+    if tool_name == "set_deployment_image":
+        return set_deployment_image(**safe_args)
+    if tool_name == "set_deployment_env":
+        return set_deployment_env(**safe_args)
+    if tool_name == "set_probe_config":
+        return set_probe_config(**safe_args)
+    if tool_name == "set_resource_limits":
+        return set_resource_limits(**safe_args)
+    if tool_name == "rollback_deployment":
+        return rollback_deployment(**safe_args)
+    if tool_name == "set_image_pull_secret":
+        return set_image_pull_secret(**safe_args)
+    if tool_name == "create_registry_secret":
+        return create_registry_secret(**safe_args)
     return {"error": f"Unknown tool: {tool_name}"}

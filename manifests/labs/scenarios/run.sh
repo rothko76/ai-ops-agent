@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [[ $# -ne 2 ]]; then
   echo "Usage: $0 <start|cleanup> <scenario>"
-  echo "Scenarios: missing-secret crashloop image-pull-backoff unschedulable"
+  echo "Scenarios: missing-secret crashloop image-pull-backoff bad-upgrade-rollout bad-config-rollout unschedulable"
   exit 1
 fi
 
