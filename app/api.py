@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from threading import Lock
-from typing import Any
+import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.main import ask_agent
@@ -61,13 +61,41 @@ app = FastAPI(
 _sessions = SessionStore(max_turns=8)
 
 
+def _require_bearer_token(authorization: str | None = Header(default=None)) -> None:
+    expected_token = os.getenv("AGENT_API_TOKEN")
+    if not expected_token:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server auth is not configured (AGENT_API_TOKEN is missing).",
+        )
+
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header.",
+        )
+
+    scheme, _, provided = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not provided:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Authorization header format. Use: Bearer <token>",
+        )
+
+    if provided != expected_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API token.",
+        )
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.post("/v1/agent/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+def chat(req: ChatRequest, _: None = Depends(_require_bearer_token)) -> ChatResponse:
     memory = _sessions.get_or_create(req.session_id)
 
     try:
@@ -83,6 +111,6 @@ def chat(req: ChatRequest) -> ChatResponse:
 
 
 @app.post("/v1/agent/session/clear", response_model=SessionClearResponse)
-def clear_session(req: SessionClearRequest) -> SessionClearResponse:
+def clear_session(req: SessionClearRequest, _: None = Depends(_require_bearer_token)) -> SessionClearResponse:
     cleared = _sessions.clear(req.session_id)
     return SessionClearResponse(session_id=req.session_id, cleared=cleared)
