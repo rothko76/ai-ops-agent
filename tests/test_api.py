@@ -222,3 +222,32 @@ def test_chat_rejects_when_concurrency_limit_reached(monkeypatch) -> None:
 
     assert response.status_code == 429
     assert "concurrent requests" in response.json()["detail"]
+
+
+def test_healthz_adds_generated_request_id_header(monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_API_TOKEN", "test-token")
+    monkeypatch.setattr(api, "_sessions", api.SessionStore(max_turns=8))
+    client = TestClient(api.app)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.headers.get("X-Request-ID")
+
+
+def test_chat_echoes_incoming_request_id_header(monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_API_TOKEN", "test-token")
+    monkeypatch.setattr(api, "_sessions", api.SessionStore(max_turns=8))
+    monkeypatch.setattr(api, "_request_limiter", api.SlidingWindowRateLimiter(max_requests=10, window_seconds=60.0))
+    monkeypatch.setattr(api, "ask_agent", lambda message, memory: "ok")
+    client = TestClient(api.app)
+
+    req_id = "req-test-123"
+    response = client.post(
+        "/v1/agent/chat",
+        json=_chat_payload("reqid", "hello"),
+        headers={**_auth_header("test-token"), "X-Request-ID": req_id},
+    )
+
+    assert response.status_code == 200
+    assert response.headers.get("X-Request-ID") == req_id

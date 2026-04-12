@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-ops-agent
+  namespace: ai-ops-agent
+spec:
+  selector:
+    app: ai-ops-agent
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
