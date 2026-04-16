@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.main import ask_agent
-from app.memory import SessionMemory
+from app.memory import SessionMemory, SessionStore
 
 
 logger = logging.getLogger("aiops.api")
@@ -42,27 +42,6 @@ class SessionClearRequest(BaseModel):
 class SessionClearResponse(BaseModel):
     session_id: str
     cleared: bool
-
-
-class SessionStore:
-    """In-memory session store keyed by session_id for multi-turn API chats."""
-
-    def __init__(self, max_turns: int = 8):
-        self._max_turns = max_turns
-        self._lock = Lock()
-        self._sessions: dict[str, SessionMemory] = {}
-
-    def get_or_create(self, session_id: str) -> SessionMemory:
-        with self._lock:
-            memory = self._sessions.get(session_id)
-            if memory is None:
-                memory = SessionMemory(max_turns=self._max_turns)
-                self._sessions[session_id] = memory
-            return memory
-
-    def clear(self, session_id: str) -> bool:
-        with self._lock:
-            return self._sessions.pop(session_id, None) is not None
 
 
 class SlidingWindowRateLimiter:
@@ -129,7 +108,7 @@ app = FastAPI(
     description="HTTP wrapper for the AI DevOps agent with session-based memory.",
 )
 
-_sessions = SessionStore(max_turns=8)
+_sessions = SessionStore(max_turns=8, ttl_seconds=_env_int("SESSION_TTL_SECONDS", 86400))
 _RATE_LIMIT_MAX_REQUESTS = _env_int("AGENT_RATE_LIMIT_MAX_REQUESTS", 30)
 _RATE_LIMIT_WINDOW_SECONDS = _env_float("AGENT_RATE_LIMIT_WINDOW_SECONDS", 60.0)
 _MAX_CONCURRENT_REQUESTS = _env_int("AGENT_MAX_CONCURRENT_REQUESTS", 8)
@@ -292,6 +271,7 @@ def chat(
     try:
         future = _chat_executor.submit(ask_agent, req.message, memory)
         answer = future.result(timeout=max(1.0, _CHAT_TIMEOUT_SECONDS))
+        _sessions.save(req.session_id, memory)
         _structured_log(
             "chat_completed",
             request_id=request_id,

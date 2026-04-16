@@ -41,6 +41,8 @@ spec:
                   key: OPENAI_MODEL
             - name: AGENT_CHAT_TIMEOUT_SECONDS
               value: "90"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
             - name: AGENT_MAX_CONCURRENT_REQUESTS
               value: "8"
             - name: AGENT_RATE_LIMIT_MAX_REQUESTS
